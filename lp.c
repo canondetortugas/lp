@@ -19,10 +19,29 @@
 /* c is a length-n vector*
 /* a is an mxn matrix in column major format */
 
-/* Initializes variables to specified size */
-void gen_test_problem(real* a, real * b, 
-		      real * c, int const m, int const n)
+real thresh(real v, real eps)
 {
+  assert(v >= -1);
+  if (v > 1)
+    {
+      return 1;
+    }
+  else if ( v >= -eps && v <= eps)
+    {
+      return 0;
+    }
+  else
+    return v;
+}
+
+/* Initializes variables to specified size */
+void gen_test_problem(real** A, real ** B, 
+		      real ** C, int const m, int const n)
+{
+  real * a;
+  real * b;
+  real * c;
+
   a = (real*) malloc(n*m*sizeof(real));
   b = (real*) malloc(m*sizeof(real));
   c = (real*) malloc(n*sizeof(real));
@@ -44,6 +63,10 @@ void gen_test_problem(real* a, real * b,
     {
       c[idx]=1;
     }
+
+  *A = a;
+  *B = b;
+  *C = c;
 }
 /* Convert to problem of the form, say max 1^{T}x s.t. Ax \leq{} 1 */
 void to_standard_form(real * const a, real const *const b, real const * const c, 
@@ -52,7 +75,7 @@ void to_standard_form(real * const a, real const *const b, real const * const c,
   /* Scale down by b */
   for(int ii = 0; ii < m; ++ii)
     {
-      for (int jj = 0; jj < m; ++jj)
+      for (int jj = 0; jj < n; ++jj)
 	{
 	  AA(ii,jj) = AA(ii,jj) / b[ii];
 	}
@@ -61,7 +84,7 @@ void to_standard_form(real * const a, real const *const b, real const * const c,
   /* Scale down by c */
   for(int ii = 0; ii < m; ++ii)
     {
-      for (int jj = 0; jj < m; ++jj)
+      for (int jj = 0; jj < n; ++jj)
 	{
 	  AA(ii,jj) = AA(ii,jj) / c[jj];
 	}
@@ -75,7 +98,7 @@ void from_standard_form(real * const a, real const *const b, real const * const 
   /* Scale up by b */
   for(int ii = 0; ii < m; ++ii)
     {
-      for (int jj = 0; jj < m; ++jj)
+      for (int jj = 0; jj < n; ++jj)
 	{
 	  AA(ii,jj) = AA(ii,jj) * b[ii];
 	}
@@ -84,7 +107,7 @@ void from_standard_form(real * const a, real const *const b, real const * const 
   /* Scale up by c */
   for(int ii = 0; ii < m; ++ii)
     {
-      for (int jj = 0; jj < m; ++jj)
+      for (int jj = 0; jj < n; ++jj)
 	{
 	  AA(ii,jj) = AA(ii,jj) * c[jj];
 	}
@@ -173,26 +196,16 @@ void dual_ao15(real const * const x, real * const y, real const * const a,
   exp_vec(y, 1/mu, -1, m);
 }
 
-inline real thresh(real v, real eps)
-{
-  assert(v >= -1);
-  if (v > 1)
-    {
-      return 1;
-    }
-  else if ( v >= -eps && v <= eps)
-    {
-      return 0;
-    }
-  else
-    return v;
-}
+
 
 /* Solve standard form LP */
 /* Output should be (1-O(eps))-approximately optimal and satisfy constraints precisely */
 
-void lpsolve_ao15(real * x, real * y, real const epsi, real const * const a, int const m, int const n)
+void lpsolve_ao15(real ** X, real ** Y, real const epsi, real const * const a, int const m, int const n)
 {
+  real *x;
+  real *y; 
+
   /* Alg. in paper doesn't solve to (1-eps) but rather (1-O(eps)). This guarantees our solution is (1-eps)-optimal */
   real const eps = epsi/6;	
   /* y scratch variable */
@@ -208,8 +221,11 @@ void lpsolve_ao15(real * x, real * y, real const epsi, real const * const a, int
 
   /* Constants */
   real const mu = eps/(4*log(n*m/eps));
-  real const alpha = eps*mu/4;
-  real const T = 6*log(2*n)/(alpha*eps);
+  real const alpha = eps*mu/4.0;
+  long int const T = ((int)6*log(2*n)/(alpha*eps)+1);
+  
+  printf("Mu: %f, Alpha: %f, Eps: %f\n", mu, alpha, eps);
+  printf("Running for %d iterations.\n", T);
 
   /* Initial value of x */
   for(int ii = 0; ii < n; ++ii)
@@ -222,10 +238,13 @@ void lpsolve_ao15(real * x, real * y, real const epsi, real const * const a, int
     {
       y[ii] = 0;
     }
-
+  
   /* Main loop */
-  for(int t = 0; t < T; ++t)
+  for(long int t = 0; t < T; ++t)
     {
+      if( !(t % 5000000))
+	printf("Reached iteraton %d (%f%%)\n", t, (float)t/T*100);
+      
       /* Compute y_{k} from x_{k} */
       dual_ao15(x,yk,a, mu, m,n);
       /* Update cumulative sum */
@@ -251,6 +270,9 @@ void lpsolve_ao15(real * x, real * y, real const epsi, real const * const a, int
 
   free(v);
   free(yk);
+
+  *X = x;
+  *Y = y;
 }
 
 real min_colinf(real const *const a, int const m, int const n)
@@ -270,14 +292,14 @@ int main(int argc, char **argv)
 {
   int n = 10;			/* Dimensionality */
   int m = 100;			/* Number of constraints */
-  real eps = 1./20;		/* precision */
+  real eps = 0.099;		/* precision */
   real *a, *b, *c;		/* instance */
   real *x, *y; 			/* solution variables */
 
   /* Read in parameters */
 
   /* Get test instance and convert to standard LP formulation */
-  gen_test_problem(a,b,c,m,n);
+  gen_test_problem(&a,&b,&c,m,n);
 
   /* Put in standard packing LP form */
   to_standard_form(a,b,c,m,n);
@@ -289,7 +311,9 @@ int main(int argc, char **argv)
   /* Solve LP */
   assert(eps > 0 && eps <= 0.1);
 
-  lpsolve_ao15(x,y,eps,a,m,n);
+  printf("Solving to precision %f.\n", eps);
+
+  lpsolve_ao15(&x,&y,eps,a,m,n);
 
   /* Maybe certify x using y here */
 
