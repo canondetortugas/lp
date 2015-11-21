@@ -11,9 +11,12 @@
 
 /* References: [1] http://arxiv.org/abs/1407.1925 */
 
-#define real float
-#define real_max FLT_MAX
-#define real_eps FLT_EPSILON
+/* #define real float */
+/* #define real_max FLT_MAX */
+/* #define real_eps FLT_EPSILON */
+#define real double
+#define real_max DBL_MAX
+#define real_eps DBL_EPSILON
 
 #define AA(i,j) a[i +j*m]
 /* b is a length-m vector */
@@ -145,6 +148,26 @@ real infinity_norm(real const * const x, int const n, int const stride)
   return lb;
 }
 
+int  infinity_norm_argmax(real const * const x, int const n, int const stride)
+{
+  assert (stride > 0);
+
+  real lb = 0;
+
+  int arg;
+
+  for(int idx = 0; idx < n; ++idx)
+    {
+      real const v = fabs(x[idx*stride]);
+      if(v>lb)
+	{
+	  lb = v;
+	  arg = idx;
+	}
+    }
+  return arg;
+}
+
 /* Compute Ax given A and x, where A is mxn and x is length-n*/
 void matvec_multr(real const * const x, real const * const a, real * const ax, int const m, int const n)
 {
@@ -207,7 +230,7 @@ void scale_vec(real * const x, real const scale, int const n)
 {
   for (int ii = 0; ii < n; ++ii)
     {
-      x[ii] *scale;
+      x[ii] *=scale;
     }
 }
 /* a is assumed to be column-major */
@@ -229,7 +252,24 @@ void dual_ao15(real const * const x, real * const y, real const * const a,
   exp_vec(y, 1/mu, -1, m);
 }
 
+void fixcoord_ao15(real * const y, real const * const a, real const eps, int const m, int const n)
+{
+  real * ya = (real*) malloc(n*sizeof(real));
+  matvec_multl(y,a,ya,m,n);
+  for(int ii = 0; ii < n; ++ii)
+    {
+      real const lambda = ya[ii] -1 + eps;
+      if( lambda < -eps)
+	{
+	  int const jj = infinity_norm_argmax(a+ii*m, m, 1);
+	  y[jj] = y[jj] - lambda/AA(jj,ii);
+	}
+    }
 
+  scale_vec(y, 1.0/(1-2*eps), m);
+
+  free(ya);
+}
 
 /* Solve standard form LP */
 /* Output should be (1-O(eps))-approximately optimal and satisfy constraints precisely */
@@ -276,15 +316,17 @@ void lpsolve_ao15(real ** X, real ** Y, real const epsi, real const * const a, i
   for(long int t = 0; t < T; ++t)
     {
       if( !(t % 5000000))
+      /* if( !(t % 500000)) */
 	{
 	  printf("Reached iteraton %d (%f%%)\n", t, (float)t/T*100);
 	  print_vec(x, n, 1);
+	  print_vec(y, m, 1);
+	  /* print_vec(yk, m, 1); */
 	}
       
+
       /* Compute y_{k} from x_{k} */
       dual_ao15(x,yk,a, mu, m,n);
-      /* Update cumulative sum */
-      add_vec(y,yk,m);
 
       /* Set v = A^{T}y_{k}-1 */
       for(int jj = 0; jj < n; ++jj)
@@ -292,7 +334,7 @@ void lpsolve_ao15(real ** X, real ** Y, real const epsi, real const * const a, i
 	  v[jj]=-1;
 	  for(int ii = 0; ii < m; ++ii)
 	    {
-	      v[jj] += AA(ii,jj)*y[ii];
+	      v[jj] += AA(ii,jj)*yk[ii];
 	    }
 	}
       /* Update x^{k+1} */
@@ -300,7 +342,14 @@ void lpsolve_ao15(real ** X, real ** Y, real const epsi, real const * const a, i
 	{
 	  x[jj] *= exp(-alpha*thresh(v[jj],eps));
 	}
+
+      /* Update cumulative sum */
+      scale_vec(yk, 1./((double)T),m);
+      add_vec(y,yk,m);
     }
+
+  fixcoord_ao15(y, a, eps, m, n);
+  /* At this point, y should be (1+4eps)OPT, so at most (1+epsi)OPT (since we scaled eps down) */
 
   scale_vec(x, 1/(1+eps),n);
 
@@ -401,8 +450,11 @@ int main(int argc, char **argv)
   printf("Solving to precision %f.\n", eps);
 
   lpsolve_ao15(&x,&y,eps,a,m,n);
-
+  /* Expect x and y to satisfy constraints perfectly and to have */
+  /* 1^{T}x >= (1-eps)OPT, 1^{T}y <= (1+eps)OPT */
+  printf("Primal solution:\n");
   print_vec(x,n,1);
+  printf("Dual solution:\n");
   print_vec(y,m,1);
 
   /* Maybe certify x using y here */
