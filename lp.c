@@ -11,9 +11,11 @@
 
 /* References: [1] http://arxiv.org/abs/1407.1925 */
 
+/* Currently getting bad results with float - seems like we might be dealing with values that are too small */
 /* #define real float */
 /* #define real_max FLT_MAX */
 /* #define real_eps FLT_EPSILON */
+
 #define real double
 #define real_max DBL_MAX
 #define real_eps DBL_EPSILON
@@ -252,6 +254,8 @@ void dual_ao15(real const * const x, real * const y, real const * const a,
   exp_vec(y, 1/mu, -1, m);
 }
 
+
+/* See [1] page 19 */
 void fixcoord_ao15(real * const y, real const * const a, real const eps, int const m, int const n)
 {
   real * ya = (real*) malloc(n*sizeof(real));
@@ -319,7 +323,9 @@ void lpsolve_ao15(real ** X, real ** Y, real const epsi, real const * const a, i
       /* if( !(t % 500000)) */
 	{
 	  printf("Reached iteraton %d (%f%%)\n", t, (float)t/T*100);
+	  printf("Primal: ");
 	  print_vec(x, n, 1);
+	  printf("Dual: ");
 	  print_vec(y, m, 1);
 	  /* print_vec(yk, m, 1); */
 	}
