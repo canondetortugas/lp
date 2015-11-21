@@ -13,6 +13,7 @@
 
 #define real float
 #define real_max FLT_MAX
+#define real_eps FLT_EPSILON
 
 #define AA(i,j) a[i +j*m]
 /* b is a length-m vector */
@@ -32,6 +33,21 @@ real thresh(real v, real eps)
     }
   else
     return v;
+}
+
+void print_vec( real const * const x, int const n, int const stride)
+{
+  for(int idx = 0; idx < n-1; ++idx)
+    printf("%f, ", x[idx*stride]);
+  printf("%f\n", x[(n-1)*stride]);
+}
+
+void print_mat(real  const * const a, int const m, int const n)
+{
+  for (int ii = 0; ii < m; ++ii)
+    {
+      print_vec(a+ii, n, m);
+    }
 }
 
 /* Initializes variables to specified size */
@@ -129,8 +145,8 @@ real infinity_norm(real const * const x, int const n, int const stride)
   return lb;
 }
 
-/* Compute Ax given A and x */
-void matvec_mult(real const * const x, real const * const a, real * const ax, int const m, int const n)
+/* Compute Ax given A and x, where A is mxn and x is length-n*/
+void matvec_multr(real const * const x, real const * const a, real * const ax, int const m, int const n)
 {
   for(int ii = 0; ii < m; ++ii)
     {
@@ -141,7 +157,24 @@ void matvec_mult(real const * const x, real const * const a, real * const ax, in
     {
       for(int ii = 0; ii < m; ++ii)
 	{
-	  ax[ii] = AA(ii,jj)*x[jj];
+	  ax[ii] += AA(ii,jj)*x[jj];
+	}
+    }
+}
+
+/* Compute x^{T}A given A and x, where A is mxn and x is length-m */
+void matvec_multl(real const * const x, real const * const a, real * const xa, int const m, int const n)
+{
+  for(int ii = 0; ii < m; ++ii)
+    {
+      xa[ii] = 0.0;
+    }
+
+  for(int jj = 0; jj < n; ++jj)
+    {
+      for(int ii = 0; ii < m; ++ii)
+	{
+	  xa[jj] += AA(ii,jj)*x[ii];
 	}
     }
 }
@@ -191,7 +224,7 @@ void dual_ao15(real const * const x, real * const y, real const * const a,
 	       real mu, int const m, int const n)
 {
   /* Set y = Ax */
-  matvec_mult(x,a,y,m,n);
+  matvec_multr(x,a,y,m,n);
 
   exp_vec(y, 1/mu, -1, m);
 }
@@ -243,7 +276,10 @@ void lpsolve_ao15(real ** X, real ** Y, real const epsi, real const * const a, i
   for(long int t = 0; t < T; ++t)
     {
       if( !(t % 5000000))
-	printf("Reached iteraton %d (%f%%)\n", t, (float)t/T*100);
+	{
+	  printf("Reached iteraton %d (%f%%)\n", t, (float)t/T*100);
+	  print_vec(x, n, 1);
+	}
       
       /* Compute y_{k} from x_{k} */
       dual_ao15(x,yk,a, mu, m,n);
@@ -287,11 +323,57 @@ real min_colinf(real const *const a, int const m, int const n)
   return ub;
 }
 
+void certify_standard_form(real const* const a, real const * const x, real const * const y, real const eps,
+			   int const m, int const n)
+{
+  real p = 0, d=0;
+
+  real * ax = (real*) malloc(m*sizeof(real));
+  real * ya = (real*) malloc(n*sizeof(real));
+  matvec_multr(x, a, ax, m,n);
+  matvec_multl(y, a, ya, m,n);
+
+  for(int ii = 0; ii < m; ++ii)
+    {
+      if (ax[ii] > 1 + real_eps)
+	{
+	  printf("Primal solution violates constraint %d (Value %f)\n", ii, ax[ii]);
+	}
+    }
+  for(int ii = 0; ii <n ; ++ii)
+    {
+      if (ya[ii] < 1 - real_eps)
+	{
+	  printf("Dual solution violates constraint %d (Value %f)\n", ii, ya[ii]);
+	}
+    }
+  for(int ii =0; ii < n; ++ii)
+    {
+      p += x[ii];
+    }
+  for(int ii =0; ii < m; ++ii)
+    {
+      d += y[ii];
+    }
+
+  printf("Primal value: %f, Dual value %f\n", p, d);
+
+  real const gap = d/p;
+  real const ub = (1+eps)/(1-eps);
+
+  printf("Duality gap: %f, Expected: %f.\n",gap,ub);;
+
+  if( gap > ub)
+    printf("Duality gap is too large.\n");
+
+  free(ax);
+}
+
 /* Solve packing LPs of the form max c^{T}x subject to Ax <= b */
 int main(int argc, char **argv)
 {
-  int n = 10;			/* Dimensionality */
-  int m = 100;			/* Number of constraints */
+  int n = 5;			/* Dimensionality */
+  int m = 5;			/* Number of constraints */
   real eps = 0.099;		/* precision */
   real *a, *b, *c;		/* instance */
   real *x, *y; 			/* solution variables */
@@ -301,8 +383,13 @@ int main(int argc, char **argv)
   /* Get test instance and convert to standard LP formulation */
   gen_test_problem(&a,&b,&c,m,n);
 
+
+  printf("Variables: %d, Constraints: %d\n", n, m);
   /* Put in standard packing LP form */
   to_standard_form(a,b,c,m,n);
+
+  printf("A:\n");
+  print_mat(a,m,n);
 
   /* Scale A down by infinity norm (as per page 5)  */
   real ainf = min_colinf(a, m,n);
@@ -310,12 +397,16 @@ int main(int argc, char **argv)
 
   /* Solve LP */
   assert(eps > 0 && eps <= 0.1);
-
+  
   printf("Solving to precision %f.\n", eps);
 
   lpsolve_ao15(&x,&y,eps,a,m,n);
 
+  print_vec(x,n,1);
+  print_vec(y,m,1);
+
   /* Maybe certify x using y here */
+  certify_standard_form(a, x, y, eps, m, n);
 
   /* Scale up solution (undo standardization and ainf scaling) */
   for(int ii = 0; ii < n; ++ii)
