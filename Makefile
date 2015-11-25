@@ -17,16 +17,19 @@ include Makefile.in.$(PLATFORM)
 
 # === Executables
 
-exe: lp
+exe: lp mkl_test
 
 lp: lp.o 
-	$(CC) $(OMP_CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
 
-path.o: lp.c
-	$(CC) -c $(OMP_CFLAGS) $<
+mkl_test: mkl_test.o 
+	$(CC)  $(CFLAGS) $(LDFLAGS) $^ -o $@ $(LIBMKL) $(INCMKL)
+
+mkl_test.o: mkl_test.c
+	$(CC) -c $(CFLAGS) $(LDFLAGS)  $< $(LIBMKL) $(INCMKL)
 
 %.o: %.c
-	$(CC) -c $(CFLAGS) $<
+	$(CC) -c $(CFLAGS) $(LDFLAGS) $<
 
 # === Cleanup and tarball
 

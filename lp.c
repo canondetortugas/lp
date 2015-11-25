@@ -315,14 +315,18 @@ void lpsolve_ao15(real ** X, real ** Y, real const epsi, real const * const a, i
     {
       y[ii] = 0;
     }
-  
+
+  double start = omp_get_wtime();
+
   /* Main loop */
   for(long int t = 0; t < T; ++t)
     {
       if( !(t % 5000000))
       /* if( !(t % 500000)) */
 	{
-	  printf("Reached iteraton %d (%f%%)\n", t, (float)t/T*100);
+	  double now = omp_get_wtime();
+
+	  printf("Reached iteraton %d (%f%%). Elapsed time %f\n", t, (float)t/T*100, now-start);
 	  printf("Primal: ");
 	  print_vec(x, n, 1);
 	  printf("Dual: ");
