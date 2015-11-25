@@ -342,7 +342,8 @@ real test_duality_gap_fixed(real const * const a, real const * const x, real con
 /* Solve standard form LP */
 /* Output should be (1-O(eps))-approximately optimal and satisfy constraints precisely */
 
-void lpsolve_ao15(real ** X, real ** Y, real const epsi, real const * const a, int const m, int const n)
+void lpsolve_ao15(real ** X, real ** Y, real const epsi, real const * const a, int const m, int const n,
+		  int const early_stop)
 {
   real *x = NULL;
   real *y = NULL; 
@@ -399,6 +400,15 @@ void lpsolve_ao15(real ** X, real ** Y, real const epsi, real const * const a, i
 	  print_vec(y, m, 1);
 	  /* print_vec(yk, m, 1); */
 	  fflush(stdout);
+
+	  if (early_stop)
+	    {
+	      if( gap <= 1/(1-eps))
+		{
+		  printf("Stopping early.\n");
+		  break;
+		}
+	    }
 	}
 
       /* Compute y_{k} from x_{k} */
@@ -504,10 +514,11 @@ void certify_standard_form(real const* const a, real const * const x, real const
 /* Solve packing LPs of the form max c^{T}x subject to Ax <= b */
 int main(int argc, char **argv)
 {
-  int n = 100;			/* Dimensionality */
-  int m = 200;			/* Number of constraints */
-  /* int n = 2; */
-  /* int m = 2; */
+  /* int n = 100;			/\* Dimensionality *\/ */
+  /* int m = 200;			/\* Number of constraints *\/ */
+  int early_stop = 1;
+  int n = 20;
+  int m = 20;
   int N = 0;			/* Number of non-zeros */
   real eps = 0.099;		/* precision */
   real *a = NULL, *b = NULL, *c = NULL;		/* instance */
@@ -542,7 +553,7 @@ int main(int argc, char **argv)
   
   printf("Solving to precision %f.\n", eps);
 
-  lpsolve_ao15(&x,&y,eps,a,m,n);
+  lpsolve_ao15(&x,&y,eps,a,m,n, early_stop);
   /* Expect x and y to satisfy constraints perfectly and to have */
   /* 1^{T}x >= (1-eps)OPT, 1^{T}y <= (1+eps)OPT */
   printf("Primal solution:\n");
