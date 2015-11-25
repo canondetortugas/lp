@@ -24,7 +24,7 @@
 
 #define AA(i,j) a[i +j*m]
 /* b is a length-m vector */
-/* c is a length-n vector*
+/* c is a length-n vector*/
 /* a is an mxn matrix in column major format */
 
 real thresh(real v, real eps)
@@ -59,8 +59,8 @@ void print_mat(real  const * const a, int const m, int const n)
 }
 
 /*  Generates a random A matrix where entries are nonzero w/p p. */
-/*  Except for first row, which has uniform entries */
-real * random_instance(int const m, int const n, real const p)
+/*  Except for first row, which has uniform [0,1] entries */
+void random_instance(int const m, int const n, real ** a,real const p)
 {
 
   /* int *l = (int*) _mm_malloc(n*n*sizeof(int), ALIGNBY); */
@@ -76,7 +76,8 @@ real * random_instance(int const m, int const n, real const p)
 	  l[j*m+i] = (genrand(&state) < p);
       }
   }
-  return l;
+  /* return l; */
+  *a = l;
 }
 
 int count_nonzeros(real const * const x, int const n)
@@ -518,9 +519,9 @@ int main(int argc, char **argv)
 
   printf("Variables: %d, Constraints: %d\n", n, m);
 
-  a = random_instance(m,n, 0.6);
+  random_instance(m,n, &a, 0.6);
   N = count_nonzeros(a,m*n);
-  printf("%d non-zeros in A.\n", N);
+  /* printf("%d non-zeros in A.\n", N); */
 
   /* Get test instance and convert to standard LP formulation */
   /* gen_test_problem(&a,&b,&c,m,n); */
@@ -565,6 +566,8 @@ int main(int argc, char **argv)
   free(a);
   a = NULL;
   /* free(b); */
+  /* b = NULL; */
   /* free(c); */
+  /* c = NULL; */
   return 0;
 }

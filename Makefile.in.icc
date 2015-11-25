@@ -1,13 +1,13 @@
 
 CC=icc
 MPICC=mpiicc
-CFLAGS=-std=c99 -g
+CFLAGS=-std=c99 -g -Wall
 LDFLAGS=-fopenmp
 
 # If you're using icc, these are good flags to try
 #OPTFLAGS= -O3 -no-prec-div -unroll-agressive
-OPTFLAGS=-O3 -no-prec-div -ipo -qopt-report=5 -qopt-report-phase=vec -unroll-agressive
-#-fstrict-aliasing -xcore-avx2
+OPTFLAGS=-O3 -no-prec-div -ipo -qopt-report=5 -qopt-report-phase=vec -fstrict-aliasing -xcore-avx2 \
+	     -unroll-agressive
 
 #CFLAGS+=$(OPTFLAGS)
 # OMP_CFLAGS=$(CFLAGS) -openmp
