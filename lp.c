@@ -29,7 +29,8 @@
 
 real thresh(real v, real eps)
 {
-  assert(v >= -1);
+  /* This should be true, but this is wayyy in the inner loop */
+  /* assert(v >= -1); */
   if (v > 1)
     {
       return 1;
@@ -308,22 +309,49 @@ void fixcoord_ao15(real * const y, real const * const a, real const eps, int con
   scale_vec(y, 1.0/(1-2*eps), m);
 
   free(ya);
+  ya = NULL;
 }
 
+/* Get duality gap for x and fixed y */
+real test_duality_gap_fixed(real const * const a, real const * const x, real const * const y_in,
+		      real const eps, int const m, int const n)
+{
+  real * y = (real*) malloc(m*sizeof(real));
+  memcpy(y, y_in, m*sizeof(real));
+
+  fixcoord_ao15(y, a, eps, m, n);
+
+  real p = 0, d = 0;
+
+ for(int ii =0; ii < n; ++ii)
+    {
+      p += x[ii];
+    }
+  for(int ii =0; ii < m; ++ii)
+    {
+      d += y[ii];
+    }
+  real const gap = d/p;
+  
+  free(y);
+  y = NULL;
+
+  return gap;
+}
 /* Solve standard form LP */
 /* Output should be (1-O(eps))-approximately optimal and satisfy constraints precisely */
 
 void lpsolve_ao15(real ** X, real ** Y, real const epsi, real const * const a, int const m, int const n)
 {
-  real *x;
-  real *y; 
+  real *x = NULL;
+  real *y = NULL; 
 
   /* Alg. in paper doesn't solve to (1-eps) but rather (1-O(eps)). This guarantees our solution is (1-eps)-optimal */
   real const eps = epsi/6;	
   /* y scratch variable */
-  real *yk;
+  real *yk = NULL;
   /* feedback variable */
-  real * v;
+  real * v = NULL;
 
   /* Solution variables */
   x = (real*) malloc(n*sizeof(real)); /* Primal variable */
@@ -361,7 +389,9 @@ void lpsolve_ao15(real ** X, real ** Y, real const epsi, real const * const a, i
 	{
 	  double now = omp_get_wtime();
 
+	  real gap = test_duality_gap_fixed(a, x, y, eps, m, n);
 	  printf("Reached iteraton %d (%f%%). Elapsed time %f\n", t, (float)t/T*100, now-start);
+	  printf("Gap: %f, Expected: %f\n", gap, (1+epsi)/(1-epsi));
 	  printf("Primal: ");
 	  print_vec(x, n, 1);
 	  printf("Dual: ");
@@ -401,7 +431,9 @@ void lpsolve_ao15(real ** X, real ** Y, real const epsi, real const * const a, i
   scale_vec(x, 1/(1+eps),n);
 
   free(v);
+  v = NULL;
   free(yk);
+  yk = NULL;
 
   *X = x;
   *Y = y;
@@ -457,23 +489,28 @@ void certify_standard_form(real const* const a, real const * const x, real const
   real const gap = d/p;
   real const ub = (1+eps)/(1-eps);
 
-  printf("Duality gap: %f, Expected: %f.\n",gap,ub);;
+  printf("Duality gap: %f, Expected: %f.\n",gap,ub);
 
   if( gap > ub)
     printf("Duality gap is too large.\n");
 
   free(ax);
+  ax = NULL;
+  free(ya);
+  ya = NULL;
 }
 
 /* Solve packing LPs of the form max c^{T}x subject to Ax <= b */
 int main(int argc, char **argv)
 {
-  int n = 10;			/* Dimensionality */
-  int m = 20;			/* Number of constraints */
+  /* int n = 10;			/\* Dimensionality *\/ */
+  /* int m = 20;			/\* Number of constraints *\/ */
+  int n = 2;
+  int m = 2;
   int N = 0;			/* Number of non-zeros */
   real eps = 0.099;		/* precision */
-  real *a, *b, *c;		/* instance */
-  real *x, *y; 			/* solution variables */
+  real *a = NULL, *b = NULL, *c = NULL;		/* instance */
+  real *x = NULL, *y = NULL; 			/* solution variables */
   
 
   /* Read in parameters */
@@ -516,15 +553,18 @@ int main(int argc, char **argv)
   certify_standard_form(a, x, y, eps, m, n);
 
   /* Scale up solution (undo standardization and ainf scaling) */
-  for(int ii = 0; ii < n; ++ii)
-    {
-      x[ii] *= c[ii]*ainf;
-    }
+  /* for(int ii = 0; ii < n; ++ii) */
+  /*   { */
+  /*     x[ii] *= c[ii]*ainf; */
+  /*   } */
 
   free(x);
+  x = NULL;
   free(y);
+  y = NULL;
   free(a);
-  free(b);
-  free(c);
+  a = NULL;
+  /* free(b); */
+  /* free(c); */
   return 0;
 }

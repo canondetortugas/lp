@@ -6,7 +6,8 @@ LDFLAGS=-fopenmp
 
 # If you're using icc, these are good flags to try
 #OPTFLAGS= -O3 -no-prec-div -unroll-agressive
-#OPTFLAGS=-O3 -no-prec-div -xcore-avx2 -ipo -qopt-report=5 -qopt-report-phase=vec -fstrict-aliasing -unroll-agressive
+OPTFLAGS=-O3 -no-prec-div -ipo -qopt-report=5 -qopt-report-phase=vec -unroll-agressive
+#-fstrict-aliasing -xcore-avx2
 
 #CFLAGS+=$(OPTFLAGS)
 # OMP_CFLAGS=$(CFLAGS) -openmp
