@@ -227,7 +227,7 @@ void matvec_multr(real const * const x, real const * const a, real * const ax, i
 /* Compute x^{T}A given A and x, where A is mxn and x is length-m */
 void matvec_multl(real const * const x, real const * const a, real * const xa, int const m, int const n)
 {
-  for(int ii = 0; ii < m; ++ii)
+  for(int ii = 0; ii < n; ++ii)
     {
       xa[ii] = 0.0;
     }
@@ -504,10 +504,10 @@ void certify_standard_form(real const* const a, real const * const x, real const
 /* Solve packing LPs of the form max c^{T}x subject to Ax <= b */
 int main(int argc, char **argv)
 {
-  /* int n = 10;			/\* Dimensionality *\/ */
-  /* int m = 20;			/\* Number of constraints *\/ */
-  int n = 2;
-  int m = 2;
+  int n = 100;			/* Dimensionality */
+  int m = 200;			/* Number of constraints */
+  /* int n = 2; */
+  /* int m = 2; */
   int N = 0;			/* Number of non-zeros */
   real eps = 0.099;		/* precision */
   real *a = NULL, *b = NULL, *c = NULL;		/* instance */
@@ -550,14 +550,14 @@ int main(int argc, char **argv)
   printf("Dual solution:\n");
   print_vec(y,m,1);
 
-  /* Maybe certify x using y here */
+  /* /\* Maybe certify x using y here *\/ */
   certify_standard_form(a, x, y, eps, m, n);
 
-  /* Scale up solution (undo standardization and ainf scaling) */
-  /* for(int ii = 0; ii < n; ++ii) */
-  /*   { */
-  /*     x[ii] *= c[ii]*ainf; */
-  /*   } */
+  /* /\* Scale up solution (undo standardization and ainf scaling) *\/ */
+  /* /\* for(int ii = 0; ii < n; ++ii) *\/ */
+  /* /\*   { *\/ */
+  /* /\*     x[ii] *= c[ii]*ainf; *\/ */
+  /* /\*   } *\/ */
 
   free(x);
   x = NULL;
