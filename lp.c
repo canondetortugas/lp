@@ -9,6 +9,8 @@
 #include <math.h>
 #include <omp.h>
 
+#include "mt19937p.h"
+
 /* References: [1] http://arxiv.org/abs/1407.1925 */
 
 /* Currently getting bad results with float - seems like we might be dealing with values that are too small */
@@ -53,6 +55,39 @@ void print_mat(real  const * const a, int const m, int const n)
     {
       print_vec(a+ii, n, m);
     }
+}
+
+/*  Generates a random A matrix where entries are nonzero w/p p. */
+/*  Except for first row, which has uniform entries */
+real * random_instance(int const m, int const n, real const p)
+{
+
+  /* int *l = (int*) _mm_malloc(n*n*sizeof(int), ALIGNBY); */
+  real *l = (real*) malloc(m*n*sizeof(real));
+  struct mt19937p state;
+  sgenrand(10302011UL, &state);
+  for (int i = 0; i < m; ++i){
+    for (int j = 0; j < n; ++j) 
+      {
+	if( i == 0)
+	  l[j*m+i] = genrand(&state);
+	else 
+	  l[j*m+i] = (genrand(&state) < p);
+      }
+  }
+  return l;
+}
+
+int count_nonzeros(real const * const x, int const n)
+{
+  int count = 0;
+
+  for(int ii = 0; ii < n; ++ii)
+    {
+      if( fabs(x[ii]) > real_eps)
+	++count;
+    }
+  return count;
 }
 
 /* Initializes variables to specified size */
@@ -433,27 +468,34 @@ void certify_standard_form(real const* const a, real const * const x, real const
 /* Solve packing LPs of the form max c^{T}x subject to Ax <= b */
 int main(int argc, char **argv)
 {
-  int n = 5;			/* Dimensionality */
-  int m = 5;			/* Number of constraints */
+  int n = 10;			/* Dimensionality */
+  int m = 20;			/* Number of constraints */
+  int N = 0;			/* Number of non-zeros */
   real eps = 0.099;		/* precision */
   real *a, *b, *c;		/* instance */
   real *x, *y; 			/* solution variables */
+  
 
   /* Read in parameters */
 
-  /* Get test instance and convert to standard LP formulation */
-  gen_test_problem(&a,&b,&c,m,n);
-
 
   printf("Variables: %d, Constraints: %d\n", n, m);
+
+  a = random_instance(m,n, 0.6);
+  N = count_nonzeros(a,m*n);
+  printf("%d non-zeros in A.\n", N);
+
+  /* Get test instance and convert to standard LP formulation */
+  /* gen_test_problem(&a,&b,&c,m,n); */
   /* Put in standard packing LP form */
-  to_standard_form(a,b,c,m,n);
+  /* to_standard_form(a,b,c,m,n); */
   /* This will totally break if b and c have zeros. Have to do a different reduction in this case */
 
   printf("A:\n");
   print_mat(a,m,n);
 
   /* Scale A down by infinity norm (as per page 5)  */
+  /* Assumes A has no all-zero columns */
   real ainf = min_colinf(a, m,n);
   scale_mat(a, 1/ainf, m, n);
 

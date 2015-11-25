@@ -19,8 +19,11 @@ include Makefile.in.$(PLATFORM)
 
 exe: lp mkl_test
 
-lp: lp.o 
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
+lp: lp.o mt19937p.o
+	$(CC) $(CFLAGS) $(OPTFLAGS) $(LDFLAGS) $^ -o $@
+
+lp.o: lp.c
+	$(CC) -c $(CFLAGS) $(OPTFLAGS) $(LDFLAGS) $<
 
 mkl_test: mkl_test.o 
 	$(CC)  $(CFLAGS) $(LDFLAGS) $^ -o $@ $(LIBMKL) $(INCMKL)

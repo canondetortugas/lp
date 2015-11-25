@@ -6,10 +6,9 @@ LDFLAGS=-fopenmp
 
 # If you're using icc, these are good flags to try
 #OPTFLAGS= -O3 -no-prec-div -unroll-agressive
-OPTFLAGS=-O3 -no-prec-div -xcore-avx2 -ipo -qopt-report=5 -qopt-report-phase=vec -fstrict-aliasing -unroll-agressive
+#OPTFLAGS=-O3 -no-prec-div -xcore-avx2 -ipo -qopt-report=5 -qopt-report-phase=vec -fstrict-aliasing -unroll-agressive
 
-CFLAGS+=$(OPTFLAGS)
-MPI_CFLAGS=$(CFLAGS)
+#CFLAGS+=$(OPTFLAGS)
 # OMP_CFLAGS=$(CFLAGS) -openmp
 
 LIBMKL=-L${MKLROOT}/lib/intel64 -lmkl_intel_ilp64 -lmkl_core -lmkl_intel_thread -lpthread -lm
