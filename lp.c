@@ -328,8 +328,8 @@ void lpsolve_ao15(real ** X, real ** Y, real const epsi, real const * const a, i
 	  printf("Dual: ");
 	  print_vec(y, m, 1);
 	  /* print_vec(yk, m, 1); */
+	  fflush(stdout);
 	}
-      
 
       /* Compute y_{k} from x_{k} */
       dual_ao15(x,yk,a, mu, m,n);
@@ -350,7 +350,9 @@ void lpsolve_ao15(real ** X, real ** Y, real const epsi, real const * const a, i
 	}
 
       /* Update cumulative sum */
-      scale_vec(yk, 1./((double)T),m);
+      /* scale_vec(yk, 1./((double)T),m); */
+      scale_vec(y, ((real)t)/(t+1), m);
+      scale_vec(yk, 1./((real)(t+1)), m);
       add_vec(y,yk,m);
     }
 
@@ -442,6 +444,7 @@ int main(int argc, char **argv)
   printf("Variables: %d, Constraints: %d\n", n, m);
   /* Put in standard packing LP form */
   to_standard_form(a,b,c,m,n);
+  /* This will totally break if b and c have zeros. Have to do a different reduction in this case */
 
   printf("A:\n");
   print_mat(a,m,n);
