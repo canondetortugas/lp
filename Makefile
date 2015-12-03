@@ -17,7 +17,15 @@ include Makefile.in.$(PLATFORM)
 
 # === Executables
 
-exe: lp mkl_test
+exe: lp mkl_test lp-mkl
+
+
+lp-mkl: lp-mkl.o mt19937p.o
+	$(CC) $(CFLAGS) $(OPTFLAGS) $(LDFLAGS) $^ -o $@ $(LIBMKL) $(INCMKL)
+
+lp-mkl.o: lp-mkl.c
+	$(CC) -c $(CFLAGS) $(OPTFLAGS) $(LDFLAGS) $< $(LIBMKL) $(INCMKL)
+
 
 lp: lp.o mt19937p.o
 	$(CC) $(CFLAGS) $(OPTFLAGS) $(LDFLAGS) $^ -o $@

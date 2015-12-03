@@ -9,6 +9,8 @@
 #include <math.h>
 #include <omp.h>
 
+#include <mkl.h>
+
 #include "mt19937p.h"
 
 /* References: [1] http://arxiv.org/abs/1407.1925 */
@@ -177,6 +179,10 @@ real infinity_norm(real const * const x, int const n, int const stride)
   assert (stride > 0);
 
   real lb = 0;
+  if (stride == 1){
+      lb = LAPACKE_dlange(LAPACK_COL_MAJOR, 'I', n, 1, x, n);
+  }
+  else{
 
   for(int idx = 0; idx < n; ++idx)
     {
@@ -192,57 +198,63 @@ int  infinity_norm_argmax(real const * const x, int const n, int const stride)
 {
   assert (stride > 0);
 
-  real lb = 0;
+//  real lb = 0;
 
   int arg;
+    
+  arg = cblas_idamax(n, x, stride);
 
-  for(int idx = 0; idx < n; ++idx)
-    {
-      real const v = fabs(x[idx*stride]);
-      if(v>lb)
-	{
-	  lb = v;
-	  arg = idx;
-	}
-    }
+//  for(int idx = 0; idx < n; ++idx)
+//    {
+//      real const v = fabs(x[idx*stride]);
+//      if(v>lb)
+//	{
+//	  lb = v;
+//	  arg = idx;
+//	}
+//    }
   return arg;
 }
 
 /* Compute Ax given A and x, where A is mxn and x is length-n*/
 void matvec_multr(real const * const x, real const * const a, real * const ax, int const m, int const n)
 {
-  for(int ii = 0; ii < m; ++ii)
-    {
-      ax[ii] = 0.0;
-    }
+//  for(int ii = 0; ii < m; ++ii)
+//    {
+//      ax[ii] = 0.0;
+//    }
+////  Here's where we can use the cblas_dgemv(CblasColMajor ,CblasNoTrans, m, n, 1.0, AA, m, x, 1, 0.0, ax, 1)
+//  for(int jj = 0; jj < n; ++jj)
+//    {
+//      for(int ii = 0; ii < m; ++ii)
+//	{
+//	  ax[ii] += AA(ii,jj)*x[jj];
+//	}
+//    }
     
-  for(int jj = 0; jj < n; ++jj)
-    {
-      for(int ii = 0; ii < m; ++ii)
-	{
-	  ax[ii] += AA(ii,jj)*x[jj];
-	}
-    }
-    
+    cblas_dgemv(CblasColMajor, CblasNoTrans, m, n, 1.0, a, m, x, 1, 0.0, ax, 1);
 }
 
 /* Compute x^{T}A given A and x, where A is mxn and x is length-m */
 void matvec_multl(real const * const x, real const * const a, real * const xa, int const m, int const n)
 {
+//Here's where we can use the cblas_dgemv(CblasColMajor ,CblasTrans, m, n, 1.0, AA, n, x, 1, 0.0, xa, 1)
     
-  for(int ii = 0; ii < n; ++ii)
-    {
-      xa[ii] = 0.0;
-    }
-
-  for(int jj = 0; jj < n; ++jj)
-    {
-      for(int ii = 0; ii < m; ++ii)
-	{
-	  xa[jj] += AA(ii,jj)*x[ii];
-	}
-    }
+//  for(int ii = 0; ii < n; ++ii)
+//    {
+//      xa[ii] = 0.0;
+//    }
+//
+//  for(int jj = 0; jj < n; ++jj)
+//    {
+//      for(int ii = 0; ii < m; ++ii)
+//	{
+//	  xa[jj] += AA(ii,jj)*x[ii];
+//	}
+//    }
     
+    cblas_dgemv(CblasColMajor ,CblasTrans, m, n, 1.0, a, m, x, 1, 0.0, xa, 1);
+//    cblas_dgemm(CblasColMajor ,CblasNoTrans, CblasNoTrans, 1, m, n, 1.0, x, 1, a, m, 0.0, xa, 1);
 }
 
 /* Exponentiate vector inplace (i.e., x <- e^(scale*(x+offset))*/
@@ -257,35 +269,51 @@ void exp_vec(real * const x, real const scale, real const offset, int const n)
 /* x1 <- x1 + x2 */
 void add_vec(real * const x1, real * const x2, int const n)
 {
+    ////if n > 40
+  //can replace this with vdAdd(n, x1, x2, x1);
+  if(n>40){
+      vdAdd(n, x1, x2, x1);
+    }
+  else{
   for (int ii = 0; ii < n; ++ii)
     {
       x1[ii] +=x2[ii];
     }
+  }
 }
 void mult_vec(real * const x1, real * const x2, int const n)
 {
-    
+    //if n > 40
+    //can replace this with vdMul(n, x1, x2, x1);
+  if(n>40){
+    vdMul(n, x1, x2, x1);
+    }
+  else{
   for (int ii = 0; ii < n; ++ii)
     {
       x1[ii] *=x2[ii];
     }
+  }
 }
 void scale_vec(real * const x, real const scale, int const n)
 {
-  for (int ii = 0; ii < n; ++ii)
-    {
-      x[ii] *=scale;
-    }
+    //here we can use cblas_dscal(n, scale, x, 1)
+  cblas_dscal(n, scale, x, 1);
+//  for (int ii = 0; ii < n; ++ii)
+//    {
+//      x[ii] *=scale;
+//    }
 }
 /* a is assumed to be column-major */
 
 void scale_mat(real * const a, real const scale, int const m, int const n)
 {
-    
-  for (int ii = 0; ii < n; ++ii)
-    {
-      scale_vec(a+ii*m,scale, m);
-    }
+    //here we can use mkl_dimatcopy('C', 'N', m, n, scale, a, n, m)
+  mkl_dimatcopy('C', 'N', m, n, scale, a, m, m);
+//  for (int ii = 0; ii < n; ++ii)
+//    {
+//      scale_vec(a+ii*m,scale, m);
+//    }
 }
 
 /* Compute dual variable y given x */
@@ -524,7 +552,7 @@ int main(int argc, char **argv)
   /* int n = 100;			/\* Dimensionality *\/ */
   /* int m = 200;			/\* Number of constraints *\/ */
   int early_stop = 1;
-  int n = 20;
+  int n = 10;
   int m = 20;
   int N = 0;			/* Number of non-zeros */
   real eps = 0.099;		/* precision */
@@ -589,3 +617,4 @@ int main(int argc, char **argv)
   /* c = NULL; */
   return 0;
 }
+
