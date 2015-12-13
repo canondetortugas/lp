@@ -1,10 +1,17 @@
 #!/bin/sh -l
 
 #PBS -l nodes=1:ppn=24
-#PBS -l walltime=0:30:00
+#PBS -l walltime=5:00:00
 #PBS -N lpp
 #PBS -j oe
 
 module load cs5220
 cd $PBS_O_WORKDIR
-./lp
+export MKL_NUM_THREADS=16
+export MKL_DYNAMIC=FALSE 
+#./lp-mkl -n 10 -m 15
+#./lp-mkl -n 20 -m 30
+#./lp-mkl -n 40 -m 60
+./lp-mkl -n 80 -m 120
+
+

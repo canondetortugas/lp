@@ -262,7 +262,19 @@ void exp_vec(real * const x, real const scale, real const offset, int const n)
 {
   for (int ii = 0; ii < n; ++ii)
     {
-      x[ii] = exp(scale*(x[ii]+offset));
+        x[ii] += offset;
+    }
+    
+    cblas_dscal(n, scale, x, 1);
+    
+    if (n>40) {
+        vdExp(n, x, x);
+    }
+    else{
+        for (int ii = 0; ii < n; ++ii)
+        {
+            x[ii] = exp(x[ii]);
+        }
     }
 }
 
@@ -389,12 +401,14 @@ void lpsolve_ao15(real ** X, real ** Y, real const epsi, real const * const a, i
   real *yk = NULL;
   /* feedback variable */
   real * v = NULL;
+  real * tmpthresh = NULL;
 
   /* Solution variables */
   x = (real*) malloc(n*sizeof(real)); /* Primal variable */
   y = (real*) malloc(m*sizeof(real)); /* Dual variable */
   yk = (real*) malloc(m*sizeof(real)); /* Dual var. scratch */
   v = (real*) malloc(n*sizeof(real));
+  tmpthresh = (real*) malloc(n*sizeof(real)); /*temp threshold vec*/
 
   /* Constants */
   real const mu = eps/(4*log(n*m/eps));
@@ -453,16 +467,32 @@ void lpsolve_ao15(real ** X, real ** Y, real const epsi, real const * const a, i
       for(int jj = 0; jj < n; ++jj)
 	{
 	  v[jj]=-1;
-	  for(int ii = 0; ii < m; ++ii)
-	    {
-	      v[jj] += AA(ii,jj)*yk[ii];
-	    }
-	}
+    }
+    
+      cblas_dgemv(CblasColMajor, CblasTrans, m, n, 1.0, a, m, yk, 1, 1.0, v, 1);
+//        for(int ii = 0; ii < m; ++ii)
+//        {
+//            v[jj] += AA(ii,jj)*yk[ii];
+//        }
+
+        
       /* Update x^{k+1} */
-      for(int jj = 0; jj < n; ++jj)
-	{
-	  x[jj] *= exp(-alpha*thresh(v[jj],eps));
-	}
+    for(int jj = 0; jj < n; ++jj)
+        {
+        tmpthresh[jj] = thresh(v[jj], eps);
+        }
+    cblas_dscal(n, -1.0*alpha, tmpthresh, 1);
+    if (n>40){
+      //cblas_dscal(n, -alpha, tmpthresh, 1);
+      vdExp(n, tmpthresh, tmpthresh);
+      vdMul(n, tmpthresh, x, x);
+    }
+    else{
+          for(int jj = 0; jj < n; ++jj)
+        {
+          x[jj] *= exp(tmpthresh[jj]);
+        }
+    }
 
       /* Update cumulative sum */
       /* scale_vec(yk, 1./((double)T),m); */
@@ -552,14 +582,28 @@ int main(int argc, char **argv)
   /* int n = 100;			/\* Dimensionality *\/ */
   /* int m = 200;			/\* Number of constraints *\/ */
   int early_stop = 1;
-  int n = 10;
-  int m = 20;
+  int n = 40;
+  int m = 60;
   int N = 0;			/* Number of non-zeros */
   real eps = 0.099;		/* precision */
   real *a = NULL, *b = NULL, *c = NULL;		/* instance */
   real *x = NULL, *y = NULL; 			/* solution variables */
   
-
+  extern char* optarg;
+  const char* optstring = "hn:m:";
+  int e;
+  while ((e = getopt(argc, argv, optstring)) != -1) {
+    switch (e) {
+        case 'h':
+	  fprintf(stderr, 'Problems\n');
+            return -1;
+        case 'n': n = atoi(optarg); break;
+        case 'm': m = atof(optarg); break;
+        }
+    }
+    
+    
+    
   /* Read in parameters */
 
 
